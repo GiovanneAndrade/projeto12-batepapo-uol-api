@@ -4,7 +4,7 @@ import cors from 'cors';
 import joi from 'joi';
 import dayjs from "dayjs";
 
- 
+ const data = new Date(100)
 const server = express();
 server.use(cors());
 server.use(express.json());
@@ -26,47 +26,63 @@ const postMessages= joi.object({
 })
 
 //------------------POST PARTCIPANTS ----------------
-server.post('/participants', (req, res) => {
-   
+server.post('/participants', async  (req, res) => {
+  const name = req.body.name
+  
+  const nameValido =  await db.collection("participants").findOne({name: name});
+  
+   if(nameValido) {
+    res.sendStatus(409)
+    return
+  } 
    const validation = userSchema.validate(req.body, {abortEarly: false})
    if (validation.error){
     const erros = validation.error.details.map((err) => err.message)
     res.status(422).send(erros)
     return; 
    }
+   
    db.collection('participants').insertOne({
     ...req.body, 
-    ...{lastStatus: Date.now()}
+    ...{lastStatus: data}
     
   })
-  res.send(201)
+  res.send('ok')
 });
 //-----------------------------------------------
 
 //----------------POST MESSAGES ----------------
-server.post('/messages', (req, res) => {
+server.post('/messages', async (req, res) => {
   const  from  = req.headers.user
-  
   const mensPost = postMessages.validate(req.body, {abortEarly: false})
   if (mensPost.error) {
     const er = mensPost.error.details.map((i)=> i.message)
     res.status(422).send(er)
     return;
   }
+  const fromValido =  await db.collection("participants").findOne({name: from});
+  if(!fromValido){
+    res.sendStatus(422)
+    return
+  }
   db.collection('messages').insertOne({
     ...req.body,
     ...{ from },
-     ...{time: dayjs().format("HH:mm:ss") }
+    ...{ time: dayjs().format("HH:mm:ss") }
   })
   res.send('ok')
-  
+ 
 }) 
 //--------------------------------------------------
 
 //----------------------POST STATUS ---------------------------------------
-server.post('/status', (req, res) => {
+server.post('/status', async (req, res) => {
   const  user  = req.headers.user
-   
+  const statusValido =  await db.collection("participants").findOne({name: user});
+  if(!statusValido){
+    res.sendStatus(404)
+    return
+  }
    try {
     db.collection('status').insertOne({
       ...{ user }, 
@@ -75,7 +91,7 @@ server.post('/status', (req, res) => {
    } catch (error) { 
     res.status(500).send(error.message)
    }
-   res.send(200)
+   res.sendStatus(200)
    
 });
 
@@ -90,11 +106,27 @@ server.get('/participants', (req, res) => {
 //----------------------------------------------------------------
 
 //---------------------GET MESSAGES------------------------
-server.get('/messages', (req, res) => {
-  let limit =  req.query
+server.get('/messages', async (req, res) => {
+  let limit =  req.query.limit
+  let user = req.headers.name
+  
+  console.log(user)
+  const chatFrom =  await db.collection("messages").findOne({from: user});
+  const chatMessage =  await db.collection("messages").findOne({type: 'message'});
+  const type = (chatMessage.type)
+  console.log({type})
+  if(!chatFrom){
+    res.send('você não possui menssages')
+    return
+  }
+  /* if (chatFrom){
+     res.send()
+  } */
+ 
   db.collection('messages').find().toArray().then(messages => {(messages) 
-    res.send(messages);
+    res.send(messages.slice(-limit).reverse());
   })
+  
 })
 //----------------------------------------------------------------
 
@@ -131,6 +163,8 @@ server.delete('/messages', async (req, res) => {
   let users = await db.collection('message').find().toArray().then(messages => {(messages)  })
   return users
 } */
+
+
 
 server.listen(5000, function() {
   console.log('ok')
