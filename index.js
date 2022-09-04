@@ -110,22 +110,31 @@ server.get('/messages', async (req, res) => {
   let limit =  req.query.limit
   let user = req.headers.name
   
-  console.log(user)
-  const chatFrom =  await db.collection("messages").findOne({from: user});
-  const chatMessage =  await db.collection("messages").findOne({type: 'message'});
-  const type = (chatMessage.type)
-  console.log({type})
-  if(!chatFrom){
-    res.send('você não possui menssages')
+  // msgs privada
+  const chatFrom =  await db.collection("messages").find({to: user, type: 'private_message'}).toArray();
+  const chatprivate = chatFrom.reverse();
+  //msgs do user
+  const toFrom =  await db.collection("messages").find({to: user}).toArray();
+  const chatTo = toFrom.reverse();
+  // msgs publicas
+  const chatMessage =  await db.collection("messages").find({type: 'message'}).toArray();
+  const messageChat = chatMessage.reverse()
+  const messageReverse = messageChat.reverse()
+  //msgs enviadas pelo user 
+  const from =  await db.collection("messages").find({from: user}).toArray();
+  const fromChat = from.reverse()
+  console.log(chatMessage)
+  const chatFiltro = [...fromChat, ...chatTo, ...chatprivate, ...messageChat]
+  const chatReverse = chatFiltro.reverse()
+  if(!fromChat.length && !chatprivate.length && !chatTo.length  ){ 
+   
+    res.send(messageReverse.slice(-limit).reverse())
     return
+  }else{
+      
+    res.send(chatReverse.slice(-limit).reverse())
   }
-  /* if (chatFrom){
-     res.send()
-  } */
- 
-  db.collection('messages').find().toArray().then(messages => {(messages) 
-    res.send(messages.slice(-limit).reverse());
-  })
+   
   
 })
 //----------------------------------------------------------------
@@ -157,13 +166,6 @@ server.delete('/messages', async (req, res) => {
 })
 
 //----------------------------------------------------
-
-/* async function findAll(){
-  let db = await connectDB()
-  let users = await db.collection('message').find().toArray().then(messages => {(messages)  })
-  return users
-} */
-
 
 
 server.listen(5000, function() {
