@@ -1,16 +1,18 @@
-import { Db, MongoClient } from 'mongodb';
+import { MongoClient } from 'mongodb';
 import express from 'express';
 import cors from 'cors';
 import joi from 'joi';
 import dayjs from "dayjs";
+import dotenv from 'dotenv';
 
- const data = new Date(100)
+dotenv.config();
+ const data = new Date()
 const server = express();
 server.use(cors());
 server.use(express.json());
-  const mongoClient = new MongoClient("mongodb://localhost:27017");
+  const mongoClient = new MongoClient(process.env.MONGO_URI);
 let db;
-
+ 
 
 mongoClient.connect().then(() => {
   db = mongoClient.db('test')
@@ -54,6 +56,7 @@ server.post('/participants', async  (req, res) => {
 //----------------POST MESSAGES ----------------
 server.post('/messages', async (req, res) => {
   const  from  = req.headers.user
+  console.log(req.body.to)
   const mensPost = postMessages.validate(req.body, {abortEarly: false})
   if (mensPost.error) {
     const er = mensPost.error.details.map((i)=> i.message)
@@ -61,9 +64,11 @@ server.post('/messages', async (req, res) => {
     return;
   }
   const fromValido =  await db.collection("participants").findOne({name: from});
-  if(!fromValido){
+  if(!fromValido ){
     res.sendStatus(422)
     return
+  }if (from === req.body.to) {
+    res.status("não e permitido enviar menssagens para si mesmo")
   }
   db.collection('messages').insertOne({
     ...req.body,
@@ -109,30 +114,24 @@ server.get('/participants', (req, res) => {
 server.get('/messages', async (req, res) => {
   let limit =  req.query.limit
   let user = req.headers.name
-  
-  // msgs privada
+
   const chatFrom =  await db.collection("messages").find({to: user, type: 'private_message'}).toArray();
   const chatprivate = chatFrom.reverse();
-  //msgs do user
-  const toFrom =  await db.collection("messages").find({to: user}).toArray();
-  const chatTo = toFrom.reverse();
-  // msgs publicas
+
   const chatMessage =  await db.collection("messages").find({type: 'message'}).toArray();
   const messageChat = chatMessage.reverse()
-  const messageReverse = messageChat.reverse()
-  //msgs enviadas pelo user 
-  const from =  await db.collection("messages").find({from: user}).toArray();
+
+  const from =  await db.collection("messages").find({from: user}, {type: 'private_message'}).toArray();
   const fromChat = from.reverse()
-  console.log(chatMessage)
-  const chatFiltro = [...fromChat, ...chatTo, ...chatprivate, ...messageChat]
-  const chatReverse = chatFiltro.reverse()
-  if(!fromChat.length && !chatprivate.length && !chatTo.length  ){ 
-   
-    res.send(messageReverse.slice(-limit).reverse())
+
+  const chatFiltro = [...fromChat, ...chatprivate, ...messageChat]
+  
+  if(!fromChat.length && !chatprivate.length && !messageChat.length ){ 
+    res.send('não existe mensagens para ser exibidas')
     return
   }else{
       
-    res.send(chatReverse.slice(-limit).reverse())
+    res.send(chatFiltro.slice(-limit))
   }
    
   
@@ -166,7 +165,34 @@ server.delete('/messages', async (req, res) => {
 })
 
 //----------------------------------------------------
+ const checkTime = (15000)
 
+setInterval( async (req,res) => {
+  const time = Date.now() - (10000) 
+  
+  try {
+    const usuariosInativos = await db.collection("participants").find({lastStatus: { $lte: time }}).toArray();
+    
+    if (usuariosInativos.length > 0) {
+      const inactiveMessages = usuariosInativos.map(i => {
+        return {
+          from: i.name,
+          to: 'Todos',
+          text: 'sai da sala...',
+          type: 'message',
+          time: dayjs().format("HH:mm:ss")
+        }
+      });
+
+      await db.collection("messages").insertMany(inactiveMessages);
+      await db.collection("participants").deleteMany({lastStatus: { $lte: time }});
+    }
+    
+  } catch (err) {
+    res.status(500)
+  }
+
+},checkTime) 
 
 server.listen(5000, function() {
   console.log('ok')
