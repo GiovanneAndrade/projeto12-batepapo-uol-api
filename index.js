@@ -13,12 +13,11 @@ server.use(express.json());
   const mongoClient = new MongoClient(process.env.MONGO_URI);
 let db;
  
-
 mongoClient.connect().then(() => {
   db = mongoClient.db('test')
 })  
 const userSchema = joi.object({
-  name: joi.string().required().max(30)
+  name: joi.string().required()
 })
 
 const postMessages= joi.object({
@@ -56,7 +55,6 @@ server.post('/participants', async  (req, res) => {
 //----------------POST MESSAGES ----------------
 server.post('/messages', async (req, res) => {
   const  from  = req.headers.user
-  console.log(req.body.to)
   const mensPost = postMessages.validate(req.body, {abortEarly: false})
   if (mensPost.error) {
     const er = mensPost.error.details.map((i)=> i.message)
@@ -154,14 +152,12 @@ server.delete('/participants', async (req, res) => {
 
 //--------------------- delet messages  ---------------------------------
 server.delete('/messages', async (req, res) => {
-  const  { type } = req.body
   try {
     await db.collection('messages').deleteOne({});
     res.sendStatus(200);
   } catch (error) {
     res.status(500).send(error.message)
   }
- 
 })
 
 //----------------------------------------------------
