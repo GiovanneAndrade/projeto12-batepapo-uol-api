@@ -25,13 +25,10 @@ const postMessages= joi.object({
     text: joi.string().required(),
     type: joi.string().required().valid('message', 'private_message')   
 })
-
 //------------------POST PARTCIPANTS ----------------
 server.post('/participants', async  (req, res) => {
   const name = req.body.name
-  
   const nameValido =  await db.collection("participants").findOne({name: name});
-  
    if(nameValido) {
     res.sendStatus(409)
     return
@@ -47,7 +44,6 @@ server.post('/participants', async  (req, res) => {
     ...req.body, 
     ...{lastStatus: data}
   })
-
   db.collection('messages').insertOne({
     from: name, 
     to: 'Todos', 
@@ -58,7 +54,6 @@ server.post('/participants', async  (req, res) => {
   res.send('ok')
 });
 //-----------------------------------------------
-
 //----------------POST MESSAGES ----------------
 server.post('/messages', async (req, res) => {
   const  from  = req.headers.user
@@ -76,15 +71,13 @@ server.post('/messages', async (req, res) => {
     res.status("não e permitido enviar menssagens para si mesmo")
   }
   db.collection('messages').insertOne({
-    ...req.body,
+    ...req.body, 
     ...{ from },
     ...{ time: dayjs().format("HH:mm:ss") }
   })
   res.send('ok')
- 
 }) 
 //--------------------------------------------------
-
 //----------------------POST STATUS ---------------------------------------
 server.post('/status', async (req, res) => {
   const  user  = req.headers.user
@@ -102,11 +95,8 @@ server.post('/status', async (req, res) => {
     res.status(500).send(error.message)
    }
    res.sendStatus(200)
-   
 });
-
 //----------------------------------------------------------------------
-
 //----------------GET PARTCIPANTS ----------------
 server.get('/participants', (req, res) => {
   db.collection('participants').find().toArray().then(participants => {(participants)
@@ -114,7 +104,6 @@ server.get('/participants', (req, res) => {
   }) 
 });
 //----------------------------------------------------------------
-
 //---------------------GET MESSAGES------------------------
 server.get('/messages', async (req, res) => {
   let limit =  req.query.limit
@@ -134,15 +123,11 @@ server.get('/messages', async (req, res) => {
   if(!fromChat.length && !chatprivate.length && !messageChat.length ){ 
     res.send('não existe mensagens para ser exibidas')
     return
-  }else{
-      
+  }else{  
     res.send(chatFiltro.slice(-limit))
   }
-   
-  
 })
 //----------------------------------------------------------------
-
 //---------------------DELET PARTCIPANTS ---------------------------------
 server.delete('/participants', async (req, res) => {
   const  { type } = req.body
@@ -153,11 +138,8 @@ server.delete('/participants', async (req, res) => {
     res.status(500).send(error.message)
   }
 })
-
 //----------------------------------------------------
-
-
-//--------------------- delet messages  ---------------------------------
+//--------------------- DELET MESSAGES ----------------------------------
 server.delete('/messages', async (req, res) => {
   try {
     await db.collection('messages').deleteOne({});
@@ -166,16 +148,12 @@ server.delete('/messages', async (req, res) => {
     res.status(500).send(error.message)
   }
 })
-
 //----------------------------------------------------
- const checkTime = (15000)
-
+const checkTime = (15000)
 setInterval( async (req,res) => {
-  const time = Date.now() - (10000) 
-  
+  const time = Date.now() - (10000000) 
   try {
     const usuariosInativos = await db.collection("participants").find({lastStatus: { $lte: time }}).toArray();
-    
     if (usuariosInativos.length > 0) {
       const inactiveMessages = usuariosInativos.map(i => {
         return {
@@ -186,15 +164,12 @@ setInterval( async (req,res) => {
           time: dayjs().format("HH:mm:ss")
         }
       });
-
       await db.collection("messages").insertMany(inactiveMessages);
       await db.collection("participants").deleteMany({lastStatus: { $lte: time }});
     }
-    
   } catch (err) {
     res.status(500)
   }
-
 },checkTime) 
 
 server.listen(5000, function() {
