@@ -6,7 +6,7 @@ import dayjs from "dayjs";
 import dotenv from 'dotenv';
 
 dotenv.config();
- const data = new Date()
+ const data = Date.now()
 const server = express();
 server.use(cors());
 server.use(express.json());
@@ -46,7 +46,14 @@ server.post('/participants', async  (req, res) => {
    db.collection('participants').insertOne({
     ...req.body, 
     ...{lastStatus: data}
-    
+  })
+
+  db.collection('messages').insertOne({
+    from: name, 
+    to: 'Todos', 
+    text: 'entra na sala...', 
+    type: 'message', 
+    time: dayjs().format("HH:mm:ss")
   })
   res.send('ok')
 });
